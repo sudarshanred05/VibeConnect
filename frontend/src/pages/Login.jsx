@@ -56,14 +56,21 @@ export default function Login() {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h1>Darwinbox Connect</h1>
-        <h2>Login</h2>
+        <div className="auth-logo-mark">
+          <div className="logo-icon">
+            <span>VC</span>
+          </div>
+        </div>
+
+        <h1>VibeConnect</h1>
+        <p className="auth-tagline">Connect. Collaborate. Vibe.</p>
+        <h2>Sign in to your account</h2>
 
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email address</label>
             <input
               type="email"
               id="email"
@@ -71,7 +78,9 @@ export default function Login() {
               value={formData.email}
               onChange={handleChange}
               required
+              autoFocus
               autoComplete="email"
+              placeholder="you@company.com"
             />
           </div>
 
@@ -85,16 +94,17 @@ export default function Login() {
               onChange={handleChange}
               required
               autoComplete="current-password"
+              placeholder="••••••••"
             />
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
         <p className="auth-link">
-          Don't have an account? <Link to="/register">Register</Link>
+          Don&apos;t have an account? <Link to="/register">Create one</Link>
         </p>
       </div>
     </div>

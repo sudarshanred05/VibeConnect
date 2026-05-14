@@ -1,13 +1,13 @@
-# Darwinbox Knowledge Chatbot
+# VibeConnect Knowledge Chatbot
 
-Enterprise MERN chat application upgraded into a Darwinbox-exclusive AI knowledge assistant. The existing chat UI, JWT auth, admin approval dashboard, Socket.IO chat flow, MongoDB models, and upload middleware are reused; the new AI layer adds corpus ingestion, local vector retrieval, grounded RAG answers, source citations, confidence scoring, analytics, and admin knowledge controls.
+Enterprise MERN chat application upgraded into a VibeConnect-exclusive AI knowledge assistant. The existing chat UI, JWT auth, admin approval dashboard, Socket.IO chat flow, MongoDB models, and upload middleware are reused; the new AI layer adds corpus ingestion, local vector retrieval, grounded RAG answers, source citations, confidence scoring, analytics, and admin knowledge controls.
 
 ## Features
 
 - JWT login, registration approval, and admin RBAC
 - Existing real-time 1:1 and group chat experience
-- Dedicated Darwinbox AI tab using corpus-grounded RAG
-- Seed Darwinbox corpus auto-indexed on first AI/admin corpus use
+- Dedicated VibeConnect AI tab using corpus-grounded RAG
+- Seed VibeConnect corpus auto-indexed on first AI/admin corpus use
 - Admin upload for `.txt`, `.md`, `.pdf`, and `.docx` knowledge files
 - Manual corpus update form and seed re-index action
 - Query analytics, failed-query tracking, categories, confidence, and citations
@@ -69,10 +69,10 @@ Backend: `http://localhost:5000`
 
 ## RAG Behavior
 
-The assistant answers only from indexed Darwinbox corpus chunks. If retrieval confidence is too low, it responds:
+The assistant answers only from indexed VibeConnect corpus chunks. If retrieval confidence is too low, it responds:
 
 ```text
-This information is not available in the Darwinbox knowledge base.
+This information is not available in the VibeConnect knowledge base.
 ```
 
-Admin users can improve coverage by uploading approved Darwinbox documents or adding manual knowledge snippets from the Admin Dashboard.
+Admin users can improve coverage by uploading approved VibeConnect documents or adding manual knowledge snippets from the Admin Dashboard.

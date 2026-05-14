@@ -38,8 +38,6 @@ export const editMessage = (id, data) =>
   api.patch(`/messages/${id}`, data);
 export const reportMessage = (messageId) =>
   api.post(`/messages/${messageId}/report`);
-export const reportUserInChat = (userId, chatId, data) =>
-  api.post(`/messages/user/${userId}/chat/${chatId}`, data);
 
 export const uploadImage = (formData) =>
   api.post("/upload/image", formData, {
@@ -54,16 +52,3 @@ export const uploadVoice = (formData) =>
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-export const aiChat = (messages, userId, chatId) =>
-  api.post("/ai/chat", { messages, userId, chatId });
-
-export const getCorpusSummary = () => api.get("/corpus/summary");
-export const getCorpusAnalytics = () => api.get("/corpus/analytics");
-export const uploadCorpus = (formData) =>
-  api.post("/corpus/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-    timeout: 120000,
-  });
-export const createManualCorpus = (data) => api.post("/corpus/manual", data);
-export const reindexSeedCorpus = () => api.post("/corpus/reindex-seed");
-export const submitAiFeedback = (data) => api.post("/corpus/feedback", data);

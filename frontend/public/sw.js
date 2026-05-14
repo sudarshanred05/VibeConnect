@@ -11,12 +11,12 @@ self.addEventListener('push', (event) => {
       badge: '/badge.png',
       data: { url: url || '/' },
       requireInteraction: false,
-      tag: 'darwinbox-notification',
+      tag: 'vibeconnect-notification',
       vibrate: [200, 100, 200]
     };
 
     event.waitUntil(
-      self.registration.showNotification(title || 'Darwinbox Connect', options)
+      self.registration.showNotification(title || 'VibeConnect', options)
     );
   } catch (error) {
     console.error('Push event error:', error);

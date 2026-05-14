@@ -1,7 +1,7 @@
 {
-  "name": "darwinbox-backend",
+  "name": "vibeconnect-backend",
   "version": "1.0.0",
-  "description": "Darwinbox Connect - Enterprise Chat Backend",
+  "description": "VibeConnect — enterprise chat and AI knowledge backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

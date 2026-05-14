@@ -229,14 +229,20 @@ function NewDMModal({ currentUser, existingChats, onClose, onChatOpened }) {
 export default function Sidebar({
   currentUser, activeChat, onSelectChat,
   onCreateGroup, darkMode, onToggleTheme, socket,
-  isVisible, isMobile
+  isVisible, isMobile,
+  openDM, onDMClosed,
 }) {
   const [chats, setChats] = useState([]);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState('chats');
+  const [filter, setFilter] = useState('all'); // 'all' | 'chats' | 'groups'
   const [loading, setLoading] = useState(true);
   const [showDM, setShowDM] = useState(false);
   const [unread, setUnread] = useState({});
+
+  // Sync external DM trigger
+  useEffect(() => {
+    if (openDM) setShowDM(true);
+  }, [openDM]);
 
 
   // ── Load chat list ──────────────────────────────────────────────
@@ -496,7 +502,6 @@ export default function Sidebar({
   const handleChatOpened = (chat) => {
     setChats((prev) => [chat, ...prev.filter((c) => c._id !== chat._id)]);
     handleSelectChat(chat);
-    setTab('chats');
   };
 
   const handleSelectChat = (chat) => {
@@ -537,9 +542,11 @@ export default function Sidebar({
     onSelectChat(chat);
   };
 
-  const filtered = chats.filter((c) =>
-    getChatName(c).toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = chats.filter((c) => {
+    if (filter === 'chats' && c.isGroup) return false;
+    if (filter === 'groups' && !c.isGroup) return false;
+    return getChatName(c).toLowerCase().includes(search.toLowerCase());
+  });
 
   if (isMobile && !isVisible) return null;
 
@@ -560,98 +567,96 @@ export default function Sidebar({
       }}>
 
         {/* ── Logo ────────────────────────────────────────────── */}
-        <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ padding: '14px 16px 13px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, background: 'var(--navy)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: '#fff', fontWeight: 900, fontSize: 18, fontFamily: 'monospace' }}>D</span>
+              <div style={{
+                width: 36, height: 36,
+                background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
+                borderRadius: 11,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
+                flexShrink: 0,
+              }}>
+                <span style={{ color: '#fff', fontWeight: 900, fontSize: 13, letterSpacing: '-0.5px' }}>VC</span>
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--navy)', letterSpacing: '-0.3px' }}>Darwinbox</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Connect</div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', letterSpacing: '-0.3px', lineHeight: 1.2 }}>VibeConnect</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', lineHeight: 1.3 }}>Messaging</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
               {currentUser?.role === 'admin' && (
                 <button 
                   onClick={() => window.location.href = '/admin'}
-                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer' }}
+                  style={{
+                    background: 'var(--hover-bg)', border: '1px solid var(--border)',
+                    borderRadius: 8, width: 30, height: 30, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--text-muted)', fontSize: 15, cursor: 'pointer',
+                  }}
                   title="Admin Dashboard"
                 >
                   ⚙️
                 </button>
               )}
               <button onClick={onToggleTheme}
-                style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer' }}>
+                style={{
+                  background: 'var(--hover-bg)', border: '1px solid var(--border)',
+                  borderRadius: 8, width: 30, height: 30, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  fontSize: 15, cursor: 'pointer',
+                }}
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
                 {darkMode ? '☀️' : '🌙'}
               </button>
             </div>
           </div>
         </div>
 
-        {/* ── Tabs ────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-          {[['chats', '💬 Chats'], ['ai', '🤖 AI']].map(([key, label]) => {
-            // Calculate unread chats count using backend unreadCount (more reliable)
-            let unreadChatsCount = 0;
-            if (key === 'chats') {
-              unreadChatsCount = chats.filter(chat => {
-                return (unread[chat._id] > 0);
-              }).length;
-            }
-            
-            const badgeText = unreadChatsCount > 9 ? '9+' : unreadChatsCount.toString();
-            
-            return (
-              <button key={key}
-                onClick={() => { setTab(key); if (key === 'ai') onSelectChat({ id: 'ai' }); }}
-                style={{
-                  flex: 1, padding: '10px 0', border: 'none', fontSize: 12, fontWeight: 600,
-                  background: tab === key ? 'var(--surface)' : 'transparent',
-                  color: tab === key ? 'var(--navy)' : 'var(--text-muted)',
-                  borderBottom: `2px solid ${tab === key ? 'var(--navy)' : 'transparent'}`,
-                  cursor: 'pointer',
-                  position: 'relative',
-                }}>
-                {label}
-                {key === 'chats' && unreadChatsCount > 0 && (
-                  <span style={{
-                    position: 'absolute',
-                    top: 6,
-                    right: 'calc(50% - 40px)',
-                    background: '#E53E3E',
-                    color: '#fff',
-                    fontSize: 9,
-                    fontWeight: 700,
-                    minWidth: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0 4px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  }}>
-                    {badgeText}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* ── Unread badge strip ───────────────────────────────── */}
+        {(() => {
+          const unreadChatsCount = chats.filter(chat => unread[chat._id] > 0).length;
+          const badgeText = unreadChatsCount > 9 ? '9+' : unreadChatsCount.toString();
+          if (!unreadChatsCount) return null;
+          return (
+            <div style={{ padding: '4px 14px 0', display: 'flex', justifyContent: 'flex-end' }}>
+              <span style={{
+                background: '#E53E3E', color: '#fff', fontSize: 10, fontWeight: 700,
+                minWidth: 18, height: 18, borderRadius: 9, display: 'inline-flex',
+                alignItems: 'center', justifyContent: 'center', padding: '0 5px',
+              }}>
+                {badgeText} unread
+              </span>
+            </div>
+          );
+        })()}
 
-        {tab === 'chats' && (
-          <>
+        <>
             {/* ── Search + Action Buttons ──────────────────────── */}
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
               {/* Search bar */}
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--input-bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', gap: 8, marginBottom: 8 }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>🔍</span>
+              <div style={{
+                display: 'flex', alignItems: 'center',
+                background: 'var(--bg)', border: '1.5px solid var(--border)',
+                borderRadius: 10, padding: '7px 12px', gap: 8, marginBottom: 8,
+                transition: 'border-color 0.18s',
+              }}
+                onFocus={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
                 <input
                   value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search conversations…"
                   style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: 'var(--text-primary)' }}
                 />
+                {search && (
+                  <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>
+                )}
               </div>
 
               {/* Action buttons */}
@@ -722,6 +727,50 @@ export default function Sidebar({
               </div>
             </div>
 
+            {/* ── Filter tabs ──────────────────────────────────── */}
+            <div style={{ display: 'flex', gap: 4, padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+              {[
+                { key: 'all',    label: 'All' },
+                { key: 'chats',  label: 'Chats' },
+                { key: 'groups', label: 'Groups' },
+              ].map(({ key, label }) => {
+                const active = filter === key;
+                const tabUnread = key === 'all'
+                  ? Object.values(unread).reduce((s, v) => s + (v > 0 ? 1 : 0), 0)
+                  : chats.filter(c =>
+                      (key === 'chats' ? !c.isGroup : c.isGroup) && unread[c._id] > 0
+                    ).length;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    style={{
+                      flex: 1, padding: '5px 0', borderRadius: 8,
+                      border: active ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
+                      background: active ? 'var(--accent-light)' : 'var(--bg)',
+                      color: active ? 'var(--accent)' : 'var(--text-muted)',
+                      fontSize: 12, fontWeight: active ? 700 : 500,
+                      cursor: 'pointer', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', gap: 5, transition: 'all 0.15s',
+                    }}
+                  >
+                    {label}
+                    {tabUnread > 0 && (
+                      <span style={{
+                        background: active ? 'var(--accent)' : '#E53E3E',
+                        color: '#fff', fontSize: 9, fontWeight: 700,
+                        minWidth: 15, height: 15, borderRadius: 8,
+                        display: 'inline-flex', alignItems: 'center',
+                        justifyContent: 'center', padding: '0 4px',
+                      }}>
+                        {tabUnread > 9 ? '9+' : tabUnread}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* ── Chat List ────────────────────────────────────── */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {loading && (
@@ -732,7 +781,11 @@ export default function Sidebar({
                 <div style={{ padding: '28px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6 }}>
                   {search
                     ? `No conversations matching "${search}"`
-                    : <>No conversations yet.<br />Click <strong>Direct Message</strong> to chat with someone or <strong>New Group</strong> to create a group.</>
+                    : filter === 'groups'
+                      ? <>No groups yet.<br />Click <strong>New Group</strong> to create one.</>
+                      : filter === 'chats'
+                        ? <>No direct messages yet.<br />Click <strong>Direct Message</strong> to start one.</>
+                        : <>No conversations yet.<br />Click <strong>Direct Message</strong> or <strong>New Group</strong> to get started.</>
                   }
                 </div>
               )}
@@ -766,51 +819,63 @@ export default function Sidebar({
                     onClick={handleClick}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 16px', cursor: 'pointer',
-                      borderBottom: '1px solid var(--border)',
-                      background: isActive ? 'var(--hover-bg)' : 'transparent',
-                      borderLeft: `3px solid ${isActive ? 'var(--navy)' : 'transparent'}`,
-                      transition: 'background 0.12s',
+                      padding: '10px 14px', cursor: 'pointer',
+                      background: isActive
+                        ? 'linear-gradient(90deg, var(--hover-bg) 0%, var(--hover-bg) 100%)'
+                        : 'transparent',
+                      borderLeft: `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                      transition: 'background 0.14s, border-color 0.14s',
                     }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--hover-bg)'; }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                   >
                     {chat.isGroup ? (
                       <div style={{
-                        width: 40, height: 40, borderRadius: '50%',
+                        width: 42, height: 42, borderRadius: 13,
                         background: getModuleColor(chat.module),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontWeight: 700, fontSize: 13, flexShrink: 0,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
                       }}>
                         {name.slice(0, 2).toUpperCase()}
                       </div>
                     ) : (
-                      <Avatar name={name} module={user?.module} size={40} online={user?.isOnline} />
+                      <Avatar name={name} module={user?.module} size={42} online={user?.isOnline} />
                     )}
 
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: showUnread ? 700 : 600, fontSize: 13, color: showUnread ? 'var(--navy)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                        <span style={{
+                          fontWeight: showUnread ? 700 : 600, fontSize: 13.5,
+                          color: isActive ? 'var(--navy)' : (showUnread ? 'var(--text-primary)' : 'var(--text-primary)'),
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, marginRight: 6,
+                        }}>
                           {name}
                         </span>
-                        <span style={{ fontSize: 10, color: showUnread ? 'var(--navy)' : 'var(--text-muted)', flexShrink: 0, marginLeft: 4, fontWeight: showUnread ? 700 : 400 }}>{time}</span>
+                        <span style={{
+                          fontSize: 10.5, flexShrink: 0,
+                          color: showUnread ? 'var(--accent)' : 'var(--text-muted)',
+                          fontWeight: showUnread ? 700 : 400,
+                        }}>{time}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                         <div style={{
-                          fontSize: 12,
-                          color: showUnread ? 'var(--text-primary)' : 'var(--text-muted)',
-                          fontWeight: showUnread ? 600 : 400,
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                          fontSize: 12, flex: 1,
+                          color: showUnread ? 'var(--text-secondary)' : 'var(--text-muted)',
+                          fontWeight: showUnread ? 500 : 400,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
                           {preview}
                         </div>
                         {showUnread && (
                           <div style={{
-                            background: 'var(--navy)', color: '#fff',
+                            background: 'var(--accent)', color: '#fff',
                             fontSize: 10, fontWeight: 700,
-                            minWidth: 16, height: 16, borderRadius: 8,
+                            minWidth: 18, height: 18, borderRadius: 9,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            padding: '0 4px', flexShrink: 0, marginLeft: 6
+                            padding: '0 5px', flexShrink: 0,
                           }}>
-                            {displayCount}
+                            {displayCount > 99 ? '99+' : displayCount}
                           </div>
                         )}
                       </div>
@@ -819,20 +884,7 @@ export default function Sidebar({
                 );
               })}
             </div>
-          </>
-        )}
-
-        {tab === 'ai' && (
-          <div style={{ flex: 1, padding: 20, overflowY: 'auto' }}>
-            <div style={{ background: 'var(--accent-light)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 13, marginBottom: 8 }}>🤖 Darwinbox Expert</div>
-              {['Corpus-grounded Darwinbox answers', 'Source citations and confidence', 'Payroll, ATS, Vibe, Performance, Security', 'Competitor and implementation Q&A', 'Fallback when knowledge is missing'].map((cap) => (
-                <div key={cap} style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>✓ {cap}</div>
-              ))}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>Grounded RAG · Darwinbox AI</div>
-          </div>
-        )}
+        </>
 
         {/* ── Current User ─────────────────────────────────────── */}
         <div
@@ -975,7 +1027,7 @@ export default function Sidebar({
         <NewDMModal
           currentUser={currentUser}
           existingChats={chats}
-          onClose={() => setShowDM(false)}
+          onClose={() => { setShowDM(false); onDMClosed?.(); }}
           onChatOpened={handleChatOpened}
         />
       )}

@@ -5,7 +5,7 @@ import Avatar from "../common/Avatar";
 import ChatLoader from "../common/ChatLoader";
 import { getModuleColor } from "../common/Avatar";
 import { useMessages } from "../../hooks/useMessages";
-import { votePoll, aiChat, deleteOrLeaveChat, deleteGroupChat, addMemberToChat, removeMemberFromChat, getUsers, getUserById, editMessage, deleteMessage, addReaction, removeReaction, markSeen, replyPrivately, markChatAsSeen } from "../../api";
+import { votePoll, deleteOrLeaveChat, deleteGroupChat, addMemberToChat, removeMemberFromChat, getUsers, getUserById, editMessage, deleteMessage, addReaction, removeReaction, markSeen, replyPrivately, markChatAsSeen } from "../../api";
 import { normalizeEmoji, isValidEmoji, ALLOWED_EMOJIS } from "../../utils/emojiNormalizer";
 
 const toSafeDate = (value) => {
@@ -137,32 +137,19 @@ export default function ChatWindow({
   onNewMessage,
   onChatUpdate,
   onSelectChat,
-  quickPrompt,
-  onPromptHandled,
   onBack,
   isMobile,
+  onStartDM,
+  onNewGroup,
 }) {
   const { messages, loading, hasMore, addMessage, updateMessage, removeMessage, loadMore } = useMessages(
-    chat?.id !== "ai" ? chat?._id : null,
+    chat?._id,
   );
 
-  const [aiMessages, setAiMessages] = useState([
-    {
-      _id: "ai-welcome",
-      messageType: "ai",
-      senderId: { _id: "ai", name: "Darwinbox AI" },
-      content:
-        "Hello! I'm DarwinBot, your Darwinbox knowledge assistant.\n\nI answer only from the indexed Darwinbox knowledge base and will say when something is not available there.\n\nTry asking about payroll, ATS, implementation, security, Vibe, integrations, or Darwinbox vs Workday.",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
-  const [aiLoading, setAiLoading] = useState(false);
   const [typingUsers, setTypingUsers] = useState({}); // { [userId]: userName }
   const [replyTo, setReplyTo] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [showReportModal, setShowReportModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [alertMessage, setAlertMessage] = useState("");
@@ -182,9 +169,6 @@ export default function ChatWindow({
   const [mentionProfile, setMentionProfile] = useState(null);
   const [mentionProfileLoading, setMentionProfileLoading] = useState(false);
   const [mentionProfileError, setMentionProfileError] = useState("");
-  const [showGroupReportModal, setShowGroupReportModal] = useState(false);
-  const [selectedUserToReport, setSelectedUserToReport] = useState(null);
-  const [groupReportReason, setGroupReportReason] = useState("");
   const [isWindowActive, setIsWindowActive] = useState(
     typeof document !== "undefined"
       ? document.visibilityState === "visible" && document.hasFocus()
@@ -194,7 +178,6 @@ export default function ChatWindow({
   const messagesContainerRef = useRef(null);
   const previousDisplayCountRef = useRef(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const isAI = chat?.id === "ai";
   const messageCounterRef = useRef(0);
 
   // Always-fresh refs so socket callbacks never go stale
@@ -325,7 +308,7 @@ export default function ChatWindow({
     const currentId = toIdString(currentUser?._id || currentUser);
     return stableChatMembers.some((m) => toIdString(m?._id || m) === currentId);
   }, [resolvedChat?.isGroup, stableChatMembers, currentUser]);
-  const groupInteractionDisabledReason = !isAI && resolvedChat?.isGroup && !isCurrentUserActiveGroupMember
+  const groupInteractionDisabledReason = resolvedChat?.isGroup && !isCurrentUserActiveGroupMember
     ? "You are no longer a member of this group"
     : "";
 
@@ -352,7 +335,7 @@ export default function ChatWindow({
 
   useEffect(() => {
     previousDisplayCountRef.current = 0;
-  }, [chat?._id, isAI]);
+  }, [chat?._id]);
 
   // Notify parent when liveChat members change (for real-time member updates)
   // Only update if members array has actually changed
@@ -372,7 +355,7 @@ export default function ChatWindow({
   // Infinite scroll: Load more messages when scrolling to top
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container || isAI) return;
+    if (!container) return;
 
     const handleScroll = async () => {
       // Check if scrolled to top (with small threshold)
@@ -396,13 +379,12 @@ export default function ChatWindow({
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [hasMore, loading, loadingMore, loadMore, isAI]);
+  }, [hasMore, loading, loadingMore, loadMore]);
 
   useEffect(() => {
-    const list = isAI ? aiMessages : messages;
     const previousCount = previousDisplayCountRef.current;
-    const hasNewMessage = list.length > previousCount;
-    previousDisplayCountRef.current = list.length;
+    const hasNewMessage = messages.length > previousCount;
+    previousDisplayCountRef.current = messages.length;
 
     if (!hasNewMessage) return;
 
@@ -414,7 +396,7 @@ export default function ChatWindow({
     if (isNearBottom) {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, aiMessages.length, isAI]);
+  }, [messages.length]);
 
   // Mark messages as seen ONLY when they are actually visible in viewport
   useEffect(() => {
@@ -422,14 +404,12 @@ export default function ChatWindow({
       !!mentionProfile ||
       showSettings ||
       showGroupSettings ||
-      showReportModal ||
       showConfirmModal ||
       showAddMemberModal ||
       showRemoveMemberModal ||
-      showEditModal ||
-      showGroupReportModal;
+      showEditModal;
 
-    if (!chat?._id || !currentUser?._id || !messages.length || isAI || !isWindowActive || isOverlayOpen) return;
+    if (!chat?._id || !currentUser?._id || !messages.length || !isWindowActive || isOverlayOpen) return;
 
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -507,25 +487,22 @@ export default function ChatWindow({
     messages,
     currentUser?._id,
     socket,
-    isAI,
     isWindowActive,
     mentionProfile,
     showSettings,
     showGroupSettings,
-    showReportModal,
     showConfirmModal,
     showAddMemberModal,
     showRemoveMemberModal,
     showEditModal,
-    showGroupReportModal,
   ]);
 
   useEffect(() => {
-    if (!chat?._id || !currentUser?._id || isAI) return;
+    if (!chat?._id || !currentUser?._id) return;
     markChatAsSeen(chat._id, currentUser._id).catch(() => {
       // Individual visible-message seen tracking will still run.
     });
-  }, [chat?._id, currentUser?._id, isAI]);
+  }, [chat?._id, currentUser?._id]);
 
   // ── Socket listeners ──────────────────────────────────────────
   useEffect(() => {
@@ -646,66 +623,6 @@ export default function ChatWindow({
 
   // ── Send handlers ─────────────────────────────────────────────
   const handleSendText = async (text, replyToId) => {
-    if (isAI) {
-      messageCounterRef.current++;
-      const userMsg = {
-        _id: "opt-" + Date.now() + "-" + messageCounterRef.current,
-        messageType: "text",
-        senderId: currentUser,
-        content: text,
-        createdAt: new Date().toISOString(),
-      };
-      setAiMessages((p) => [...p, userMsg]);
-      setAiLoading(true);
-      try {
-        const history = aiMessages.slice(-10).map((m) => ({
-          role: m.senderId?._id === "ai" ? "assistant" : "user",
-          content: m.content,
-        }));
-
-        const data = await aiChat(
-          [...history, { role: "user", content: text }],
-          currentUser._id,
-          chat?._id,
-        );
-        const payload = data.data?.data || data.data || {};
-
-        messageCounterRef.current++;
-        setAiMessages((p) => [
-          ...p,
-          {
-            _id: "ai-" + Date.now() + "-" + messageCounterRef.current,
-            messageType: "ai",
-            senderId: { _id: "ai", name: "Darwinbox AI" },
-            content: payload.message || "No response.",
-            metadata: {
-              confidence: payload.confidence,
-              sources: payload.sources || [],
-              queryId: payload.queryId,
-              status: payload.status,
-              model: payload.model,
-            },
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      } catch {
-        messageCounterRef.current++;
-        setAiMessages((p) => [
-          ...p,
-          {
-            _id: "err-" + Date.now() + "-" + messageCounterRef.current,
-            messageType: "ai",
-            senderId: { _id: "ai", name: "Darwinbox AI" },
-            content: "Sorry, an error occurred. Please try again.",
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      } finally {
-        setAiLoading(false);
-      }
-      return;
-    }
-
     if (chat?.isGroup && !isCurrentUserActiveGroupMember) {
       setAlertMessage("You are no longer a member of this group");
       setShowAlert(true);
@@ -805,26 +722,6 @@ export default function ChatWindow({
       setRemoveMemberSearch("");
     }
   }, [showRemoveMemberModal]);
-
-  // Handle report user
-  const handleReportUser = async () => {
-    if (!reportReason.trim()) {
-      setAlertMessage("Please provide a reason for reporting");
-      setShowAlert(true);
-      return;
-    }
-    try {
-      // TODO: Implement actual report API endpoint
-      setAlertMessage("User reported successfully. Our team will review this.");
-      setShowAlert(true);
-      setShowReportModal(false);
-      setReportReason("");
-      setShowSettings(false);
-    } catch (err) {
-      setAlertMessage("Failed to report user: " + err.message);
-      setShowAlert(true);
-    }
-  };
 
   // Fetch available users for add member modal
   const fetchAvailableUsers = async () => {
@@ -1010,12 +907,6 @@ export default function ChatWindow({
   }, [removeMessage]);
 
   // Handle quick prompts from sidebar
-  useEffect(() => {
-    if (quickPrompt && isAI) {
-      handleSendText(quickPrompt);
-      onPromptHandled?.();
-    }
-  }, [quickPrompt, isAI]);
 
   useEffect(() => {
     if (!chat?.__privateReplyContext) return;
@@ -1188,54 +1079,40 @@ export default function ChatWindow({
   }, []);
 
   // ── Render ────────────────────────────────────────────────────
-  const displayMessages = isAI ? aiMessages : messages;
-
   if (!chat)
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "var(--surface)",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        <div style={{ fontSize: 48 }}>💬</div>
-        <div
-          style={{
-            fontWeight: 700,
-            fontSize: 16,
-            color: "var(--text-primary)",
-          }}
-        >
-          Darwinbox Connect
+      <div className="chat-empty-state">
+        <div className="chat-empty-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
         </div>
-        <div
-          style={{
-            color: "var(--text-muted)",
-            fontSize: 13,
-            textAlign: "center",
-          }}
-        >
-          Click Direct Message to chat 1:1
-          <br />
-          or New Group to create a group
+        <h3>Welcome to VibeConnect</h3>
+        <p>
+          Pick a conversation from the sidebar, or start a new one with a
+          teammate right now.
+        </p>
+        <div className="empty-cta">
+          <button className="empty-chip" onClick={onStartDM} style={{ cursor: "pointer", background: "var(--surface)", border: "1.5px solid var(--border)" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Direct Message
+          </button>
+          <button className="empty-chip" onClick={onNewGroup} style={{ cursor: "pointer", background: "var(--surface)", border: "1.5px solid var(--border)" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            New Group
+          </button>
         </div>
       </div>
     );
 
-  const chatMember =
-    !isAI && !chat.isGroup
-      ? chat.members?.find((m) => m._id !== currentUser._id)
-      : null;
-  const chatName = isAI
-    ? "Darwinbox AI"
-    : chat.isGroup
-      ? chat.name
-      : chatMember?.name || "Chat";
+  const chatMember = !chat.isGroup
+    ? chat.members?.find((m) => m._id !== currentUser._id)
+    : null;
+  const chatName = chat.isGroup ? chat.name : chatMember?.name || "Chat";
 
   return (
     <div
@@ -1250,15 +1127,17 @@ export default function ChatWindow({
       {/* Header */}
       <div
         style={{
-          padding: isMobile ? "10px 14px" : "14px 20px",
+          padding: isMobile ? "10px 14px" : "12px 20px",
           borderBottom: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexShrink: 0,
+          background: "var(--surface)",
+          boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
           {isMobile && (
             <button
               onClick={onBack}
@@ -1269,32 +1148,18 @@ export default function ChatWindow({
                 color: "var(--navy)",
                 padding: "0 4px",
                 cursor: "pointer",
+                flexShrink: 0,
               }}
             >
               ←
             </button>
           )}
-          {isAI ? (
+          {chat.isGroup ? (
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg,#1E3A5F,#3B82F6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 18,
-              }}
-            >
-              🤖
-            </div>
-          ) : chat.isGroup ? (
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
+                width: 42,
+                height: 42,
+                borderRadius: 13,
                 background: getModuleColor(chat.module),
                 display: "flex",
                 alignItems: "center",
@@ -1302,6 +1167,8 @@ export default function ChatWindow({
                 color: "#fff",
                 fontWeight: 700,
                 fontSize: 14,
+                flexShrink: 0,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
               }}
             >
               {chat.name?.slice(0, 2)}
@@ -1310,63 +1177,75 @@ export default function ChatWindow({
             <Avatar
               name={chatMember?.name || "??"}
               module={chatMember?.module}
-              size={40}
+              size={42}
               online={chatMember?.isOnline}
             />
           )}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontWeight: 700,
                 fontSize: 15,
                 color: "var(--text-primary)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               {chatName}
             </div>
             <div
               style={{
-                fontSize: 11,
-                color: isAI
-                  ? "#3B82F6"
-                  : chatMember?.isOnline
-                    ? "#22C55E"
-                    : "var(--text-muted)",
+                fontSize: 11.5,
+                color: chatMember?.isOnline ? "#22C55E" : "var(--text-muted)",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                marginTop: 1,
               }}
             >
-              {isAI
-                ? "AI Assistant · Always available"
-                : chat.isGroup
-                  ? `${resolvedChat?.module || "Group"} · ${stableChatMembers.length || 0} members · Created ${resolvedChat?.createdBy?.name || "by admin"}`
-                  : chatMember?.isOnline
-                    ? "● Online"
-                    : `Last seen ${
-                        chatMember?.lastSeen
-                          ? new Date(chatMember.lastSeen).toLocaleTimeString(
-                              [],
-                              { hour: "2-digit", minute: "2-digit" },
-                            )
-                          : "recently"
-                      }`}
+              {chat.isGroup ? (
+                <>
+                  <span>{stableChatMembers.length || 0} members</span>
+                </>
+              ) : chatMember?.isOnline ? (
+                <>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
+                  <span>Online</span>
+                </>
+              ) : (
+                `Last seen ${
+                  chatMember?.lastSeen
+                    ? new Date(chatMember.lastSeen).toLocaleTimeString(
+                        [],
+                        { hour: "2-digit", minute: "2-digit" },
+                      )
+                    : "recently"
+                }`
+              )}
             </div>
           </div>
         </div>
-        {!isAI && !chat.isGroup && (
-          <div style={{ position: "relative" }}>
+        {!chat.isGroup && (
+          <div style={{ position: "relative", flexShrink: 0, marginLeft: 8 }}>
             <button
               onClick={() => setShowSettings(!showSettings)}
               style={{
-                background: "none",
+                background: showSettings ? "var(--hover-bg)" : "none",
                 border: "1px solid var(--border)",
-                borderRadius: 8,
-                padding: "6px 12px",
+                borderRadius: 9,
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 color: "var(--text-muted)",
                 fontSize: 16,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "all 0.18s",
               }}
-              onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-              onMouseLeave={(e) => (e.target.style.background = "none")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-bg)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = showSettings ? "var(--hover-bg)" : "none")}
             >
               ⚙️
             </button>
@@ -1388,28 +1267,6 @@ export default function ChatWindow({
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  onClick={() => {
-                    setShowReportModal(true);
-                    setShowSettings(false);
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    border: "none",
-                    background: "none",
-                    textAlign: "left",
-                    color: "var(--text-primary)",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    transition: "background 0.2s",
-                    borderTop: "1px solid var(--border)",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-                  onMouseLeave={(e) => (e.target.style.background = "none")}
-                >
-                  🚩 Report User
-                </button>
                 <button
                   onClick={() => {
                     handleDeleteChat();
@@ -1436,22 +1293,26 @@ export default function ChatWindow({
             )}
           </div>
         )}
-        {!isAI && chat.isGroup && isCurrentUserActiveGroupMember && (
-          <div style={{ position: "relative" }}>
+        {chat.isGroup && isCurrentUserActiveGroupMember && (
+          <div style={{ position: "relative", flexShrink: 0, marginLeft: 8 }}>
             <button
               onClick={() => setShowGroupSettings(!showGroupSettings)}
               style={{
-                background: "none",
+                background: showGroupSettings ? "var(--hover-bg)" : "none",
                 border: "1px solid var(--border)",
-                borderRadius: 8,
-                padding: "6px 12px",
+                borderRadius: 9,
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 color: "var(--text-muted)",
                 fontSize: 16,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "all 0.18s",
               }}
-              onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-              onMouseLeave={(e) => (e.target.style.background = "none")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-bg)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = showGroupSettings ? "var(--hover-bg)" : "none")}
             >
               ⚙️
             </button>
@@ -1518,28 +1379,6 @@ export default function ChatWindow({
                 </button>
                 <button
                   onClick={() => {
-                    setShowGroupReportModal(true);
-                    setShowGroupSettings(false);
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    border: "none",
-                    background: "none",
-                    textAlign: "left",
-                    color: "var(--text-primary)",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    transition: "background 0.2s",
-                    borderTop: "1px solid var(--border)",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-                  onMouseLeave={(e) => (e.target.style.background = "none")}
-                >
-                  🚩 Report User
-                </button>
-                <button
-                  onClick={() => {
                     setConfirmAction("deleteGroup");
                     setShowConfirmModal(true);
                     setShowGroupSettings(false);
@@ -1577,10 +1416,11 @@ export default function ChatWindow({
           display: "flex",
           flexDirection: "column",
           gap: 2,
+          background: "var(--bg)",
         }}
       >
         {/* Loading more messages indicator */}
-        {loadingMore && !isAI && (
+        {loadingMore && (
           <ChatLoader compact message="Loading older messages..." />
         )}
 
@@ -1588,15 +1428,15 @@ export default function ChatWindow({
           <ChatLoader compact message="Loading messages..." />
         )}
 
-        {displayMessages.map((msg, i) => {
+        {messages.map((msg, i) => {
           const senderId = toIdString(msg.senderId);
           const isMe = senderId === toIdString(currentUser);
           const prevId =
             i > 0
-              ? toIdString(displayMessages[i - 1].senderId)
+              ? toIdString(messages[i - 1].senderId)
               : null;
           const showSender = chat.isGroup && !isMe && senderId !== prevId;
-          const prevMsg = i > 0 ? displayMessages[i - 1] : null;
+          const prevMsg = i > 0 ? messages[i - 1] : null;
           const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
 
           return (
@@ -1690,16 +1530,12 @@ export default function ChatWindow({
           </div>
         )}
 
-        {aiLoading && (
-          <ChatLoader compact message="Generating response..." />
-        )}
-
         <div ref={endRef} />
       </div>
 
       {/* Input */}
       <MessageInput
-        chatId={isAI ? "ai" : chat._id}
+        chatId={chat._id}
         currentUser={currentUser}
         isGroup={!!chat.isGroup}
         chatMembers={stableChatMembers}
@@ -1813,104 +1649,6 @@ export default function ChatWindow({
             >
               Close
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Report User Modal */}
-      {showReportModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-          }}
-          onClick={() => setShowReportModal(false)}
-        >
-          <div
-            style={{
-              background: "var(--surface)",
-              borderRadius: 12,
-              padding: 24,
-              width: "90%",
-              maxWidth: 450,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ margin: "0 0 16px 0", color: "var(--text-primary)" }}>
-              Report User
-            </h2>
-            <p style={{ margin: "0 0 16px 0", color: "var(--text-muted)", fontSize: 14 }}>
-              Please provide details about why you want to report this user. Our team will review and take appropriate action.
-            </p>
-            
-            <textarea
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value)}
-              placeholder="Describe the reason for reporting..."
-              style={{
-                width: "100%",
-                padding: 12,
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                background: "var(--input-bg)",
-                color: "var(--text-primary)",
-                fontFamily: "inherit",
-                fontSize: 14,
-                resize: "vertical",
-                minHeight: 120,
-                boxSizing: "border-box",
-                marginBottom: 16,
-              }}
-            />
-
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-              <button
-                onClick={() => {
-                  setShowReportModal(false);
-                  setReportReason("");
-                }}
-                style={{
-                  padding: "10px 20px",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  background: "none",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-                onMouseLeave={(e) => (e.target.style.background = "none")}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReportUser}
-                style={{
-                  padding: "10px 20px",
-                  border: "none",
-                  borderRadius: 8,
-                  background: "#E53E3E",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  transition: "opacity 0.2s",
-                }}
-                onMouseEnter={(e) => (e.target.style.opacity = "0.8")}
-                onMouseLeave={(e) => (e.target.style.opacity = "1")}
-              >
-                Submit Report
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -2444,198 +2182,6 @@ export default function ChatWindow({
               >
                 Remove Member{selectedUsersToRemove.length > 1 ? "s" : ""}
                 {selectedUsersToRemove.length ? ` (${selectedUsersToRemove.length})` : ""}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report Group User Modal */}
-      {showGroupReportModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-          }}
-          onClick={() => setShowGroupReportModal(false)}
-        >
-          <div
-            style={{
-              background: "var(--surface)",
-              borderRadius: 12,
-              padding: 24,
-              width: "90%",
-              maxWidth: 450,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ margin: "0 0 16px 0", color: "var(--text-primary)" }}>
-              🚩 Report User
-            </h2>
-            <p style={{ margin: "0 0 16px 0", color: "var(--text-muted)", fontSize: 14 }}>
-              Select a user to report
-            </p>
-
-            <div
-              style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                maxHeight: 200,
-                overflowY: "auto",
-                marginBottom: 16,
-              }}
-            >
-              {chat.members && chat.members.length > 0 ? (
-                chat.members.filter((m) => m._id !== currentUser._id).map((member) => (
-                  <button
-                    key={member._id}
-                    onClick={() => setSelectedUserToReport(member)}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "none",
-                      background: selectedUserToReport?._id === member._id ? "var(--hover-bg)" : "none",
-                      textAlign: "left",
-                      color: "var(--text-primary)",
-                      cursor: "pointer",
-                      fontSize: 14,
-                      transition: "background 0.2s",
-                      borderBottom: "1px solid var(--border)",
-                    }}
-                    onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-                    onMouseLeave={(e) =>
-                      (e.target.style.background =
-                        selectedUserToReport?._id === member._id ? "var(--hover-bg)" : "none")
-                    }
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          background: "var(--border)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 12,
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        {member.name?.charAt(0).toUpperCase() || "?"}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 500 }}>{member.name || "Unknown"}</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{member.email}</div>
-                      </div>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div style={{ padding: "12px 16px", color: "var(--text-muted)", fontSize: 13 }}>
-                  No users to report
-                </div>
-              )}
-            </div>
-
-            {selectedUserToReport && (
-              <textarea
-                value={groupReportReason}
-                onChange={(e) => setGroupReportReason(e.target.value)}
-                placeholder="Describe the reason for reporting..."
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  background: "var(--input-bg)",
-                  color: "var(--text-primary)",
-                  fontFamily: "inherit",
-                  fontSize: 14,
-                  resize: "vertical",
-                  minHeight: 100,
-                  boxSizing: "border-box",
-                  marginBottom: 16,
-                }}
-              />
-            )}
-
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-              <button
-                onClick={() => {
-                  setShowGroupReportModal(false);
-                  setSelectedUserToReport(null);
-                  setGroupReportReason("");
-                }}
-                style={{
-                  padding: "10px 20px",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  background: "none",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => (e.target.style.background = "var(--hover-bg)")}
-                onMouseLeave={(e) => (e.target.style.background = "none")}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!selectedUserToReport || !groupReportReason.trim()) {
-                    setAlertMessage("Please select a user and provide a reason");
-                    setShowAlert(true);
-                    return;
-                  }
-                  try {
-                    const { reportUserInChat } = await import("../../api");
-                    const response = await reportUserInChat(selectedUserToReport._id, chat._id, {
-                      reason: groupReportReason,
-                    });
-                    
-                    if (response?.data?.success) {
-                      setAlertMessage(`Report against ${selectedUserToReport.name} submitted — pending admin review.`);
-                      setShowAlert(true);
-                      setShowGroupReportModal(false);
-                      setSelectedUserToReport(null);
-                      setGroupReportReason("");
-                    } else {
-                      setAlertMessage("Failed to submit report");
-                      setShowAlert(true);
-                    }
-                  } catch (err) {
-                    if (err.response?.status === 409) {
-                      setAlertMessage(err.response?.data?.error || "You have already reported this user. Awaiting admin review.");
-                    } else {
-                      setAlertMessage("Failed to submit report: " + (err.response?.data?.error || err.message));
-                    }
-                    setShowAlert(true);
-                  }
-                }}
-                style={{
-                  padding: "10px 20px",
-                  border: "none",
-                  borderRadius: 8,
-                  background: selectedUserToReport && groupReportReason.trim() ? "#E53E3E" : "var(--text-muted)",
-                  color: "white",
-                  cursor: selectedUserToReport && groupReportReason.trim() ? "pointer" : "not-allowed",
-                  fontSize: 14,
-                  opacity: selectedUserToReport && groupReportReason.trim() ? 1 : 0.6,
-                }}
-              >
-                Submit Report
               </button>
             </div>
           </div>

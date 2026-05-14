@@ -1,82 +1,6 @@
 import Avatar from '../common/Avatar';
 import { getModuleColor } from '../common/Avatar';
 
-const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-
-const DARWINBOX_PROMPT_CATEGORIES = [
-  {
-    title: 'Payroll Policies',
-    prompts: [
-      'Describe monthly payroll processing in Darwinbox.',
-      'How are tax and statutory deductions automated?',
-      'What payroll approval workflows exist?',
-      'How are multi-country payroll policies handled?',
-    ],
-  },
-  {
-    title: 'Recruitment Processes',
-    prompts: [
-      'What is the end-to-end recruitment process in Darwinbox ATS?',
-      'How does candidate screening workflow operate?',
-      'Explain interview scheduling and approval workflows.',
-      'How are offer management policies structured?',
-    ],
-  },
-  {
-    title: 'Attendance & Leave',
-    prompts: [
-      'What leave policies can be configured in Darwinbox?',
-      'How does Darwinbox manage attendance and shift policies?',
-      'How does Darwinbox support remote work and hybrid work policies?',
-      'What approval workflow policies are available in Darwinbox?',
-    ],
-  },
-  {
-    title: 'Performance Management',
-    prompts: [
-      'How does Darwinbox manage goal-setting policies?',
-      'Explain appraisal cycle workflows.',
-      'How are 360-degree feedback processes structured?',
-      'Explain performance calibration processes.',
-    ],
-  },
-  {
-    title: 'Employee Lifecycle',
-    prompts: [
-      'Explain Darwinbox onboarding workflows.',
-      'How are employee transfers managed?',
-      'How does Darwinbox automate exit and offboarding?',
-      'How are policy acknowledgements tracked?',
-    ],
-  },
-  {
-    title: 'Security & Compliance',
-    prompts: [
-      'What security governance policies are built into Darwinbox?',
-      'How does Darwinbox enforce access control?',
-      'Explain audit logging and compliance processes.',
-      'What GDPR or regional privacy controls exist?',
-    ],
-  },
-  {
-    title: 'Governance',
-    prompts: [
-      'How does Darwinbox support policy localization by region?',
-      'Explain multi-entity organizational process management.',
-      'How are policy exceptions handled?',
-      'How does Darwinbox support audit readiness?',
-    ],
-  },
-  {
-    title: 'Implementation',
-    prompts: [
-      'What is Darwinbox’s implementation methodology?',
-      'How are data migration policies handled?',
-      'How are change requests managed?',
-      'How are upgrades and feature rollouts managed?',
-    ],
-  },
-];
 
 // Format last seen time - show date and time consistently
 const formatLastSeen = (lastSeen) => {
@@ -107,61 +31,8 @@ const formatLastSeen = (lastSeen) => {
   });
 };
 
-export default function RightSidebar({ chat, currentUser, onQuickPrompt }) {
-  if (!chat || chat.id === 'ai') {
-    if (chat?.id === 'ai') return (
-      <div style={{ width: 300, background: 'var(--sidebar-bg)', borderLeft: '1px solid var(--border)', padding: 18, overflowY: 'auto' }}>
-        <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🤖</div>
-          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>Darwinbox AI</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Enterprise AI Assistant</div>
-        </div>
-        <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 12 }}>
-          Suggested Categories
-        </div>
-        {DARWINBOX_PROMPT_CATEGORIES.map((category) => (
-          <div
-            key={category.title}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 12,
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--navy)', marginBottom: 8 }}>
-              {category.title}
-            </div>
-            {category.prompts.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => onQuickPrompt?.(prompt)}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg)',
-                  color: 'var(--text-primary)',
-                  borderRadius: 9,
-                  padding: '8px 10px',
-                  marginBottom: 7,
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  cursor: 'pointer',
-                }}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-    );
-    return null;
-  }
+export default function RightSidebar({ chat, currentUser }) {
+  if (!chat) return null;
 
   const isGroup = chat.isGroup;
   const otherUser = !isGroup ? chat.members?.find((m) => m._id !== currentUser._id) : null;
@@ -198,7 +69,6 @@ export default function RightSidebar({ chat, currentUser, onQuickPrompt }) {
                 {chat.name?.slice(0, 2).toUpperCase()}
               </div>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{chat.name}</div>
-              <div style={{ fontSize: 12, color: getModuleColor(chat.module), fontWeight: 600 }}>{chat.module}</div>
               {chat.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{chat.description}</div>}
             </div>
 

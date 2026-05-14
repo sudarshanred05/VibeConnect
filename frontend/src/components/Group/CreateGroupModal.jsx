@@ -60,7 +60,23 @@ export default function CreateGroupModal({ currentUserId, onCreated, onClose }) 
     setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
-  const selectAll = () => setSelected(filtered.map((u) => u._id));
+  const allFilteredSelected = filtered.length > 0 && filtered.every((u) => selected.includes(u._id));
+
+  const selectAll = () => {
+    if (allFilteredSelected) {
+      // Deselect only the currently-visible users, keep the rest
+      const filteredIds = new Set(filtered.map((u) => u._id));
+      setSelected((prev) => prev.filter((id) => !filteredIds.has(id)));
+    } else {
+      // Merge currently-visible users into existing selection (additive)
+      setSelected((prev) => {
+        const existing = new Set(prev);
+        filtered.forEach((u) => existing.add(u._id));
+        return Array.from(existing);
+      });
+    }
+  };
+
   const clearAll = () => setSelected([]);
 
   const handleCreate = async () => {
@@ -180,8 +196,8 @@ export default function CreateGroupModal({ currentUserId, onCreated, onClose }) 
               </label>
               {filtered.length > 0 && (
                 <button onClick={selectAll}
-                  style={{ fontSize: 11, color: 'var(--navy)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                  Select all {search ? 'filtered' : ''}
+                  style={{ fontSize: 11, color: allFilteredSelected ? '#EF4444' : 'var(--navy)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  {allFilteredSelected ? 'Deselect filtered' : `Select all${module ? ` (${module})` : search ? ' filtered' : ''}`}
                 </button>
               )}
             </div>

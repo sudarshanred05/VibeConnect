@@ -1,29 +1,36 @@
-# Dependencies
+# ── Dependencies ─────────────────────────────────────────────────
 node_modules/
-package-lock.json
-yarn.lock
 
-# Production build
-dist/
-build/
-
-# Environment
+# ── Environment variables ─────────────────────────────────────────
 .env
 .env.local
+.env.development
+.env.production
+.env.test
 .env.*.local
 
-# IDE
+# ── Vite build output ─────────────────────────────────────────────
+dist/
+dist-ssr/
+*.local
+
+# ── Vite cache ────────────────────────────────────────────────────
+.vite/
+
+# ── Logs ──────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── IDE & Editor ──────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Logs
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-
-# OS
+# ── OS files ──────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

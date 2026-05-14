@@ -17,9 +17,9 @@ function ChatApp({ currentUser }) {
   const [activeChat, setActiveChat] = useState(null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupCreatedCb, setGroupCreatedCb] = useState(null);
-  const [triggeredPrompt, setTriggeredPrompt] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [triggerDM, setTriggerDM] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -46,7 +46,7 @@ function ChatApp({ currentUser }) {
     if (!socket) return;
     const onStatus = ({ userId, isOnline, lastSeen }) => {
       setActiveChat((prev) => {
-        if (!prev || prev.id === "ai") return prev;
+        if (!prev) return prev;
         const isMember = prev.members?.some((m) => (m._id || m) === userId);
         if (!isMember) return prev;
 
@@ -89,6 +89,8 @@ function ChatApp({ currentUser }) {
         socket={socket}
         isVisible={showSidebar}
         isMobile={isMobile}
+        openDM={triggerDM}
+        onDMClosed={() => setTriggerDM(false)}
       />
 
       <div
@@ -103,24 +105,21 @@ function ChatApp({ currentUser }) {
           chat={activeChat}
           currentUser={currentUser}
           socket={socket}
-          onNewMessage={(msg) => {
-            // Handle new messages if needed
-          }}
+          onNewMessage={(msg) => {}}
           onChatUpdate={handleChatUpdate}
           onSelectChat={setActiveChat}
-          quickPrompt={triggeredPrompt}
-          onPromptHandled={() => setTriggeredPrompt(null)}
           onBack={() => {
             setActiveChat(null);
             if (isMobile) setShowSidebar(true);
           }}
           isMobile={isMobile}
+          onStartDM={() => setTriggerDM(true)}
+          onNewGroup={() => handleCreateGroup(setActiveChat)}
         />
         {activeChat && !isMobile && (
           <RightSidebar
             chat={activeChat}
             currentUser={currentUser}
-            onQuickPrompt={setTriggeredPrompt}
           />
         )}
       </div>
@@ -216,7 +215,7 @@ export default function App() {
                   </SocketProvider>
                 ) : (
                   <ChatLoader
-                    message="Opening Darwinbox Connect..."
+                    message="Opening VibeConnect..."
                     detail="Preparing your chats and workspace."
                   />
                 )}

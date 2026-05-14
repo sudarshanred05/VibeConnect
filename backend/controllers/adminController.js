@@ -392,12 +392,16 @@ exports.getOrgTree = async (req, res) => {
     const filter = { status: "approved" };
     if (module) filter.module = module;
 
+    const AI_EMAILS = ["ai@vibeconnect.app", "ai@darwinbox.com"];
     const users = await User.find(filter)
       .select("name email module role designation managerId status")
       .sort({ name: 1 })
       .lean();
 
-    const tree = buildOrgTree(users);
+    const filtered = users.filter(
+      (u) => !AI_EMAILS.includes(u.email) && u.name !== "VibeConnect AI" && u.name !== "Darwinbox AI"
+    );
+    const tree = buildOrgTree(filtered);
     res.json({ success: true, data: tree, count: users.length });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

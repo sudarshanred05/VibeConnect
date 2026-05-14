@@ -61,15 +61,22 @@ export default function Register() {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h1>Darwinbox Connect</h1>
-        <h2>Register</h2>
+        <div className="auth-logo-mark">
+          <div className="logo-icon">
+            <span>VC</span>
+          </div>
+        </div>
+
+        <h1>VibeConnect</h1>
+        <p className="auth-tagline">Connect. Collaborate. Vibe.</p>
+        <h2>Create your account</h2>
 
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="name">Full Name</label>
+            <label htmlFor="name">Full name</label>
             <input
               type="text"
               id="name"
@@ -77,12 +84,14 @@ export default function Register() {
               value={formData.name}
               onChange={handleChange}
               required
+              autoFocus
               autoComplete="name"
+              placeholder="Jane Smith"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Work email</label>
             <input
               type="email"
               id="email"
@@ -91,11 +100,12 @@ export default function Register() {
               onChange={handleChange}
               required
               autoComplete="email"
+              placeholder="you@company.com"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Password <span style={{fontWeight:400,color:'var(--text-muted)',textTransform:'none',letterSpacing:0}}>— min 6 characters</span></label>
             <input
               type="password"
               id="password"
@@ -105,11 +115,12 @@ export default function Register() {
               required
               autoComplete="new-password"
               minLength={6}
+              placeholder="••••••••"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label htmlFor="confirmPassword">Confirm password</label>
             <input
               type="password"
               id="confirmPassword"
@@ -119,16 +130,17 @@ export default function Register() {
               required
               autoComplete="new-password"
               minLength={6}
+              placeholder="••••••••"
             />
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? "Registering..." : "Register"}
+            {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
 
         <p className="auth-link">
-          Already have an account? <Link to="/login">Login</Link>
+          Already have an account? <Link to="/login">Sign in</Link>
         </p>
       </div>
     </div>

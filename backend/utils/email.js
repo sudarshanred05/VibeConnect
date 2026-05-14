@@ -19,7 +19,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
     }
 
     const info = await transporter.sendMail({
-      from: `"Darwinbox Connect" <${process.env.EMAIL_USER}>`,
+      from: `"VibeConnect" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
@@ -40,7 +40,7 @@ exports.sendApprovalEmail = async (user) => {
       <h2 style="color: #4CAF50;">Account Approved! ✓</h2>
       <p>Hi <strong>${user.name}</strong>,</p>
       <p>Your account has been approved by the administrator.</p>
-      <p>You can now log in to <strong>Darwinbox Connect</strong> using your credentials.</p>
+      <p>You can now log in to <strong>VibeConnect</strong> using your credentials.</p>
       <p><strong>Role:</strong> ${user.role}</p>
       ${user.managerId ? `<p><strong>Manager ID:</strong> ${user.managerId}</p>` : ""}
       <p style="margin-top: 30px;">
@@ -50,16 +50,16 @@ exports.sendApprovalEmail = async (user) => {
         </a>
       </p>
       <p style="color: #666; margin-top: 30px; font-size: 12px;">
-        This is an automated email from Darwinbox Connect.
+        This is an automated email from VibeConnect.
       </p>
     </div>
   `;
 
-  const text = `Hi ${user.name},\n\nYour account has been approved. You can now log in to Darwinbox Connect.\n\nRole: ${user.role}`;
+  const text = `Hi ${user.name},\n\nYour account has been approved. You can now log in to VibeConnect.\n\nRole: ${user.role}`;
 
   return sendEmail({
     to: user.email,
-    subject: "Account Approved - Darwinbox Connect",
+    subject: "Account Approved - VibeConnect",
     html,
     text,
   });
@@ -75,7 +75,7 @@ exports.sendRejectionEmail = async (user) => {
          <a href="mailto:admin@gmail.com">admin@gmail.com</a>.
       </p>
       <p style="color: #666; margin-top: 30px; font-size: 12px;">
-        This is an automated email from Darwinbox Connect.
+        This is an automated email from VibeConnect.
       </p>
     </div>
   `;
@@ -84,7 +84,7 @@ exports.sendRejectionEmail = async (user) => {
 
   return sendEmail({
     to: user.email,
-    subject: "Registration Rejected - Darwinbox Connect",
+    subject: "Registration Rejected - VibeConnect",
     html,
     text,
   });
@@ -114,7 +114,7 @@ exports.sendAdminReminder = async (pendingUsers) => {
         </a>
       </p>
       <p style="color: #666; margin-top: 30px; font-size: 12px;">
-        This is an automated reminder from Darwinbox Connect.
+        This is an automated reminder from VibeConnect.
       </p>
     </div>
   `;
@@ -123,7 +123,7 @@ exports.sendAdminReminder = async (pendingUsers) => {
 
   return sendEmail({
     to: "admin@gmail.com",
-    subject: "⏰ Pending User Approval Reminder - Darwinbox Connect",
+    subject: "⏰ Pending User Approval Reminder - VibeConnect",
     html,
     text,
   });

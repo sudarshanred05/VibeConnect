@@ -157,10 +157,7 @@ function MessageBubble({
   // senderId can be a full object OR just an ID string
   const senderVal = senderId && typeof senderId === "object" ? senderId : null;
   const senderIdStr = toIdString(senderId);
-  const isAiSystemSubtype = message?.metadata?.systemSubtype === "ai";
-  const isAiSenderEmail = senderVal?.email === "ai@darwinbox.com";
-  const isAI = senderIdStr === "ai" || messageType === "ai" || isAiSystemSubtype || isAiSenderEmail;
-  const isSystem = messageType === "system" && !isAI;
+  const isSystem = messageType === "system" || messageType === "ai" || message?.metadata?.systemSubtype === "ai";
   const timeStr = formatTime(createdAt);
   const resolvedFileUrl = toMediaUrl(fileUrl, { disposition: "inline", filename: fileName || "file" });
   const resolvedVoiceUrl = toMediaUrl(voiceUrl, { disposition: "inline", filename: fileName || "voice" });
@@ -231,8 +228,8 @@ function MessageBubble({
     // System messages can have any content
     if (messageType === "system") return true;
 
-    // Text and AI messages need content
-    if ((messageType === "text" || messageType === "ai") && !content) return false;
+    // Text messages need content
+    if (messageType === "text" && !content) return false;
 
     // Image messages need fileUrl
     if (messageType === "image" && !fileUrl) return false;
@@ -374,31 +371,14 @@ function MessageBubble({
       }}
     >
       {/* Avatar — only for received messages */}
-      {!isMe &&
-        (isAI ? (
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg,#1E3A5F,#3B82F6)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-              flexShrink: 0,
-            }}
-          >
-            🤖
-          </div>
-        ) : (
-          <Avatar
-            name={senderVal?.name || "?"}
-            module={senderVal?.module}
-            size={30}
-            style={{ alignSelf: "flex-end" }}
-          />
-        ))}
+      {!isMe && (
+        <Avatar
+          name={senderVal?.name || "?"}
+          module={senderVal?.module}
+          size={30}
+          style={{ alignSelf: "flex-end" }}
+        />
+      )}
 
       <div style={{ maxWidth: messageType === "poll" ? 360 : "72%" }}>
         {/* Sender name (group chats only) */}
@@ -449,26 +429,18 @@ function MessageBubble({
         {/* Bubble */}
         <div
           style={{
-            padding: messageType === "poll" ? 0 : "11px 15px",
-            borderRadius: isMe ? "14px 14px 5px 14px" : "14px 14px 14px 5px",
-            background: isMe
-              ? "var(--message-mine)"
-              : isAI
-                ? "var(--message-ai)"
-                : "var(--message-other)",
-            color: isMe
-              ? "var(--message-mine-text, #fff)"
-              : isAI
-                ? "var(--message-ai-text, var(--text-primary))"
-                : "var(--message-other-text, var(--text-primary))",
+            padding: messageType === "poll" ? 0 : "10px 14px",
+            borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+            background: isMe ? "var(--message-mine)" : "var(--message-other)",
+            color: isMe ? "var(--message-mine-text, #fff)" : "var(--message-other-text, var(--text-primary))",
             fontSize: 14,
-            lineHeight: 1.65,
-            border: isAI
-              ? "1px solid var(--message-ai-border)"
-              : "1px solid var(--border)",
+            lineHeight: 1.6,
+            border: isMe
+              ? "1px solid var(--message-mine-border, rgba(255,255,255,0.08))"
+              : "1px solid var(--message-other-border, var(--border))",
             boxShadow: isMe
-              ? "0 8px 18px rgba(30, 58, 95, 0.16)"
-              : "0 6px 16px rgba(15, 23, 42, 0.08)",
+              ? "0 4px 14px rgba(30, 58, 95, 0.18)"
+              : "0 2px 8px rgba(15, 23, 42, 0.07)",
             wordBreak: "break-word",
             letterSpacing: "0.01em",
           }}
@@ -479,7 +451,7 @@ function MessageBubble({
             </span>
           )}
 
-          {!isDeleted && (messageType === "text" || messageType === "ai") && (
+          {!isDeleted && messageType === "text" && (
             <>
               <span style={{ whiteSpace: "pre-wrap", display: "block" }}>
                 {renderRichText(content)}
@@ -882,7 +854,7 @@ function MessageBubble({
                     >
                       ↩ Reply
                     </button>
-                    {isMe && (messageType === "text" || messageType === "ai") && (() => {
+                    {isMe && messageType === "text" && (() => {
                       const messageTime = new Date(createdAt).getTime();
                       const now = Date.now();
                       const minutesElapsed = (now - messageTime) / 1000 / 60;
@@ -899,7 +871,7 @@ function MessageBubble({
                         </button>
                       ) : null;
                     })()}
-                    {!isMe && !isAI && isGroupChat && (
+                    {!isMe && isGroupChat && (
                       <button
                         onClick={() => {
                           setShowMenu(false);
@@ -910,7 +882,7 @@ function MessageBubble({
                         💬 Reply Privately
                       </button>
                     )}
-                    {(isMe || (isAI && isGroupChat)) && (
+                    {isMe && (
                       <button
                         onClick={() => {
                           setShowMenu(false);
@@ -921,7 +893,7 @@ function MessageBubble({
                         🗑️ Delete
                       </button>
                     )}
-                    {!isMe && !isAI && (
+                    {!isMe && (
                       <button
                         onClick={() => {
                           setShowMenu(false);

@@ -7,7 +7,6 @@ const sanitizeHtml = require("sanitize-html");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { sendPushToUser } = require("../utils/pushService");
 const { updateLastMessage, getChatMemberIds } = require("../services/chatService");
-const { answerQuestion, summarizeGroupChat, detectSummaryCommand } = require("../services/darwinboxRagService");
 
 const onlineUsers = new Map();
 const sanitize = (t) =>
@@ -16,24 +15,6 @@ const sanitize = (t) =>
 const extractMentions = (text = "") => {
   const matches = String(text).match(/@([a-zA-Z0-9_.-]+)/g) || [];
   return [...new Set(matches.map((m) => m.slice(1).toLowerCase()))];
-};
-
-const ensureAiUser = async () => {
-  const email = "ai@darwinbox.com";
-  let aiUser = await User.findOne({ email });
-  if (aiUser) return aiUser;
-
-  aiUser = await User.create({
-    name: "Darwinbox AI",
-    email,
-    role: "admin",
-    status: "approved",
-    designation: "Admin",
-    module: "Admin",
-    approvedAt: new Date(),
-  });
-
-  return aiUser;
 };
 
 const normalizeRealtimeMessage = (message) => {
@@ -59,8 +40,6 @@ const normalizeRealtimeMessage = (message) => {
     normalized.caption = normalized.metadata?.caption || null;
     normalized.voiceUrl = decryptIfNeeded(normalized.metadata?.voiceUrl) || null;
     normalized.voiceDuration = normalized.metadata?.voiceDuration || null;
-  } else if (type === "system" && normalized.metadata?.systemSubtype === "ai") {
-    normalized.messageType = "ai";
   } else {
     normalized.messageType = type || "text";
   }
@@ -231,138 +210,6 @@ module.exports = (io) => {
               url: `/`
             });
           });
-
-          const mentionsAI =
-            sanitized &&
-            /@(ai|darwinbot|darwinboxai|darwinbox-ai)\b/i.test(sanitized) &&
-            normalizedType === "text";
-
-          if (chat.isGroup && mentionsAI) {
-            io.to(chatId).emit("typing_status", {
-              userId: "ai",
-              userName: "Darwinbox AI",
-              isTyping: true,
-            });
-
-            setTimeout(async () => {
-              try {
-                let question = sanitized
-                  .replace(/@(ai|darwinbot|darwinboxai|darwinbox-ai)\b/gi, "")
-                  .trim();
-
-                if (replyTo) {
-                  const parentMsg = await Message.findById(replyTo);
-                  if (parentMsg && parentMsg.content) {
-                    let parentContent = parentMsg.content;
-                    if (typeof parentContent === 'object' && parentContent.iv) {
-                      parentContent = decrypt(parentContent);
-                    }
-                    question = `${question}\n\nContext from replied message: ${parentContent}`.trim();
-                  }
-                }
-
-                if (!question) {
-                  question = "Introduce yourself as the Darwinbox knowledge assistant.";
-                }
-
-                const isSummaryCommand = detectSummaryCommand(question);
-
-                let result;
-
-                if (isSummaryCommand) {
-                  const transcript = await Message.find({ chatId })
-                    .sort({ createdAt: -1 })
-                    .limit(200)
-                    .populate("senderId", "name email")
-                    .lean();
-
-                  const ordered = transcript
-                    .reverse()
-                    .filter((item) => item._id.toString() !== msg._id.toString())
-                    .map((item) => {
-                      let itemContent = item.content;
-                      if (itemContent && typeof itemContent === "object" && itemContent.iv) {
-                        try { itemContent = decrypt(itemContent); } catch { itemContent = ""; }
-                      }
-                      return { ...item, content: itemContent };
-                    });
-
-                  result = await summarizeGroupChat({
-                    messages: ordered,
-                    chatName: chat.name || "the group",
-                    userId: senderId,
-                  });
-                } else {
-                  const recentMessages = await Message.find({ chatId })
-                    .sort({ createdAt: -1 })
-                    .limit(8)
-                    .populate("senderId", "name email")
-                    .lean();
-
-                  const history = recentMessages
-                    .reverse()
-                    .filter((item) => item._id.toString() !== msg._id.toString())
-                    .map((item) => {
-                      const isAiMessage = item.type === "system" && item.metadata?.systemSubtype === "ai";
-                      let itemContent = item.content;
-                      if (itemContent && typeof itemContent === "object" && itemContent.iv) {
-                        itemContent = decrypt(itemContent);
-                      }
-                      return {
-                        role: isAiMessage ? "assistant" : "user",
-                        content: isAiMessage
-                          ? itemContent
-                          : `${item.senderId?.name || "Group member"}: ${itemContent || ""}`,
-                      };
-                    })
-                    .filter((item) => item.content?.trim());
-
-                  result = await answerQuestion({
-                    question,
-                    userId: senderId,
-                    history,
-                  });
-                }
-
-                const aiUser = await ensureAiUser();
-                const aiMsg = await Message.create({
-                  chatId,
-                  senderId: aiUser._id,
-                  type: "system",
-                  content: encrypt(result.message),
-                  metadata: {
-                    systemSubtype: "ai",
-                    confidence: result.confidence,
-                    sources: result.sources,
-                    queryId: result.queryId,
-                    status: result.status,
-                    model: result.model,
-                  },
-                  replyTo: msg._id, 
-                });
-
-                await updateLastMessage(chatId, aiMsg);
-
-                const populatedAi = await Message.findById(aiMsg._id)
-                  .populate("senderId", "name email avatar module designation")
-                  .populate("replyTo", "content type metadata senderId");
-
-                const decryptedAiMsg = normalizeRealtimeMessage(populatedAi.toObject());
-
-                io.to(chatId).emit("typing_status", {
-                  userId: "ai",
-                  isTyping: false,
-                });
-                io.to(chatId).emit("receive_message", decryptedAiMsg);
-              } catch (err) {
-                console.error("Proactive AI Error:", err.message);
-                io.to(chatId).emit("typing_status", {
-                  userId: "ai",
-                  isTyping: false,
-                });
-              }
-            }, 2000);
-          }
         } catch (e) {
           socket.emit("error", { message: e.message });
         }

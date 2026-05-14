@@ -23,8 +23,6 @@ const reactionRoutes = require("./routes/reactions");
 const seenRoutes = require("./routes/seen");
 const pollRoutes = require("./routes/poll");
 const uploadRoutes = require("./routes/upload");
-const aiRoutes = require("./routes/ai");
-const corpusRoutes = require("./routes/corpus");
 const pushRoutes = require("./routes/push");
 const reportRoutes = require("./routes/report");
 
@@ -87,8 +85,6 @@ app.use("/api/reactions", reactionRoutes);
 app.use("/api/seen", seenRoutes);
 app.use("/api/poll", pollRoutes);
 app.use("/api/upload", uploadRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/corpus", corpusRoutes);
 app.use("/api/push", pushRoutes);
 
 app.use((err, req, res, next) => {
@@ -115,7 +111,7 @@ initSocket(io);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Darwinbox Connect server running on port ${PORT}`);
+  console.log(`VibeConnect server running on port ${PORT}`);
   console.log(`Socket.io ready`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 });

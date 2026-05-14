@@ -7,7 +7,6 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [pendingUsers, setPendingUsers] = useState([]);
   const [approvedUsers, setApprovedUsers] = useState([]);
-  const [orgTree, setOrgTree] = useState([]);
   const [modules, setModules] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,10 +15,6 @@ export default function AdminDashboard() {
   const [approvalManagers, setApprovalManagers] = useState([]);
   const [editManagers, setEditManagers] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
-  const [corpusSummary, setCorpusSummary] = useState({ documents: [], chunkCount: 0, categories: [] });
-  const [corpusAnalytics, setCorpusAnalytics] = useState(null);
-  const [corpusUploading, setCorpusUploading] = useState(false);
-  const [manualCorpus, setManualCorpus] = useState({ title: "", text: "" });
   const [actionBusy, setActionBusy] = useState("");
   const [pendingReports, setPendingReports] = useState([]);
   const [pendingRemovals, setPendingRemovals] = useState([]);
@@ -61,9 +56,6 @@ export default function AdminDashboard() {
         fetchApprovedUsers(),
         fetchModules(),
         fetchDesignations(),
-        fetchOrgTree(),
-        fetchCorpusSummary(),
-        fetchCorpusAnalytics(),
         fetchPendingReports(),
       ]);
     } finally {
@@ -99,14 +91,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchOrgTree = async () => {
-    try {
-      const response = await api.get("/admin/org-tree");
-      setOrgTree(response.data.data || []);
-    } catch (err) {
-      console.error("Failed to load org tree");
-    }
-  };
 
   const fetchPendingReports = async () => {
     try {
@@ -211,88 +195,6 @@ export default function AdminDashboard() {
       setDesignations(response.data.data || []);
     } catch (err) {
       console.error("Failed to load designations");
-    }
-  };
-
-  const fetchCorpusSummary = async () => {
-    try {
-      const response = await api.get("/corpus/summary");
-      setCorpusSummary(response.data.data || { documents: [], chunkCount: 0, categories: [] });
-    } catch (err) {
-      console.error("Failed to load corpus summary");
-    }
-  };
-
-  const fetchCorpusAnalytics = async () => {
-    try {
-      const response = await api.get("/corpus/analytics");
-      setCorpusAnalytics(response.data.data || null);
-    } catch (err) {
-      console.error("Failed to load corpus analytics");
-    }
-  };
-
-  const handleCorpusUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("title", file.name.replace(/\.[^.]+$/, ""));
-
-    setCorpusUploading(true);
-    try {
-      await api.post("/corpus/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 120000,
-      });
-      setSuccessMessage("Corpus uploaded and indexed successfully");
-      await Promise.all([fetchCorpusSummary(), fetchCorpusAnalytics()]);
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to upload corpus");
-      setTimeout(() => setError(""), 4000);
-    } finally {
-      setCorpusUploading(false);
-      event.target.value = "";
-    }
-  };
-
-  const submitManualCorpus = async () => {
-    setActionBusy("Teaching DarwinBot new knowledge...");
-    try {
-      if (!manualCorpus.title.trim() || !manualCorpus.text.trim()) {
-        setError("Manual corpus title and text are required");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      await api.post("/corpus/manual", manualCorpus);
-      setManualCorpus({ title: "", text: "" });
-      setSuccessMessage("Manual corpus indexed successfully");
-      await fetchCorpusSummary();
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save manual corpus");
-      setTimeout(() => setError(""), 4000);
-    } finally {
-      setActionBusy("");
-    }
-  };
-
-  const reindexSeedCorpus = async () => {
-    if (!confirm("Re-indexing resets the knowledge base to the bundled Darwinbox corpus. Continue?")) return;
-    setActionBusy("Re-indexing Darwinbox knowledge...");
-    try {
-      await api.post("/corpus/reindex-seed");
-      setSuccessMessage("Darwinbox seed corpus re-indexed");
-      await Promise.all([fetchCorpusSummary(), fetchCorpusAnalytics()]);
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to re-index corpus");
-      setTimeout(() => setError(""), 4000);
-    } finally {
-      setActionBusy("");
     }
   };
 
@@ -422,7 +324,7 @@ export default function AdminDashboard() {
       if (response.data.success) {
         setSuccessMessage("User approved successfully");
         closeApprovalForm();
-        await Promise.all([fetchPendingUsers(), fetchApprovedUsers(), fetchOrgTree()]);
+        await Promise.all([fetchPendingUsers(), fetchApprovedUsers()]);
         setTimeout(() => setSuccessMessage(""), 3000);
       }
     } catch (err) {
@@ -475,7 +377,7 @@ export default function AdminDashboard() {
       if (response.data.success) {
         setSuccessMessage("User hierarchy updated successfully");
         closeEditForm();
-        await Promise.all([fetchApprovedUsers(), fetchOrgTree()]);
+        await fetchApprovedUsers();
         setTimeout(() => setSuccessMessage(""), 3000);
       }
     } catch (err) {
@@ -526,14 +428,14 @@ export default function AdminDashboard() {
     return (
       <div className="admin-container">
         <ChatLoader
-          message="Warming up the Darwinbox command center..."
+          message="Warming up the VibeConnect command center..."
           detail="Preparing conversations, users, and knowledge insights for your admin workspace."
         />
       </div>
     );
   }
 
-  const busyMessage = actionBusy || (corpusUploading ? "Indexing corpus and arranging knowledge shelves..." : "");
+  const busyMessage = actionBusy;
 
   return (
     <div className="admin-container">
@@ -541,7 +443,7 @@ export default function AdminDashboard() {
         <div>
           <h1>Admin Dashboard</h1>
           <p className="admin-subtitle">
-            Manage users, knowledge, analytics, and chatbot readiness from one clean workspace.
+            Manage users, analytics, and moderation from one clean workspace.
           </p>
         </div>
         <div className="admin-actions">
@@ -578,20 +480,6 @@ export default function AdminDashboard() {
             <div>
               <strong>{approvedUsers.length}</strong>
               <span>Approved users</span>
-            </div>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-icon">🧠</span>
-            <div>
-              <strong>{corpusSummary.chunkCount || 0}</strong>
-              <span>Knowledge chunks</span>
-            </div>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-icon">✨</span>
-            <div>
-              <strong>{corpusAnalytics?.successRate ? `${Math.round(corpusAnalytics.successRate * 100)}%` : "0%"}</strong>
-              <span>Answer success</span>
             </div>
           </div>
           <div className="admin-stat-card">
@@ -848,103 +736,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <h2 style={{ marginTop: 28 }}>Darwinbox Knowledge Base</h2>
-        <div
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 18,
-          }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
-            <div className="user-card" style={{ margin: 0 }}>
-              <h3>{corpusSummary.documents?.length || 0}</h3>
-              <p>Corpus documents</p>
-            </div>
-            <div className="user-card" style={{ margin: 0 }}>
-              <h3>{corpusSummary.chunkCount || 0}</h3>
-              <p>Indexed chunks</p>
-            </div>
-            <div className="user-card" style={{ margin: 0 }}>
-              <h3>{corpusAnalytics?.successRate ? `${Math.round(corpusAnalytics.successRate * 100)}%` : "0%"}</h3>
-              <p>Answer success rate</p>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-            <label className="btn-primary" style={{ cursor: corpusUploading ? "not-allowed" : "pointer", opacity: corpusUploading ? 0.6 : 1 }}>
-              {corpusUploading ? "Indexing..." : "Upload .txt/.md/.pdf/.docx"}
-              <input
-                type="file"
-                accept=".txt,.md,.markdown,.pdf,.docx"
-                onChange={handleCorpusUpload}
-                disabled={corpusUploading}
-                style={{ display: "none" }}
-              />
-            </label>
-            <button onClick={reindexSeedCorpus} className="btn-secondary" disabled={!!actionBusy || corpusUploading}>
-              Re-index Seed Corpus
-            </button>
-          </div>
-
-          <div className="approval-form" style={{ marginBottom: 18 }}>
-            <div className="form-group">
-              <label>Manual Knowledge Title</label>
-              <input
-                value={manualCorpus.title}
-                onChange={(e) => setManualCorpus((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Example: Darwinbox regional payroll update"
-              />
-            </div>
-            <div className="form-group">
-              <label>Manual Knowledge Text</label>
-              <textarea
-                value={manualCorpus.text}
-                onChange={(e) => setManualCorpus((prev) => ({ ...prev, text: e.target.value }))}
-                placeholder="Paste approved Darwinbox knowledge base content here..."
-                rows={5}
-              />
-            </div>
-            <button onClick={submitManualCorpus} className="btn-primary" disabled={!!actionBusy || corpusUploading}>
-              Add Manual Content
-            </button>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-            <div>
-              <h3 style={{ marginTop: 0 }}>Knowledge Categories</h3>
-              {(corpusSummary.categories || []).length === 0 ? (
-                <p className="no-data">No categories indexed yet</p>
-              ) : (
-                corpusSummary.categories.map((category) => (
-                  <div key={category.name} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "7px 0", fontSize: 13 }}>
-                    <span>{category.name}</span>
-                    <strong>{category.count}</strong>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div>
-              <h3 style={{ marginTop: 0 }}>Recent Failed Queries</h3>
-              {(corpusAnalytics?.recentFailures || []).length === 0 ? (
-                <p className="no-data">No failed queries recorded</p>
-              ) : (
-                corpusAnalytics.recentFailures.map((item) => (
-                  <div key={item._id} style={{ borderBottom: "1px solid var(--border)", padding: "7px 0", fontSize: 13 }}>
-                    <div>{item.question}</div>
-                    <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-                      {item.answerStatus} · confidence {Math.round((item.confidence || 0) * 100)}%
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
         <h2 style={{ marginTop: 28 }}>
           Reports & Moderation
           {pendingReports.length + pendingRemovals.length > 0 && (
@@ -1082,49 +873,9 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        <h2 style={{ marginTop: 28 }}>Organization Tree</h2>
-        {orgTree.length === 0 ? (
-          <p className="no-data">No hierarchy data available</p>
-        ) : (
-          <div
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: 16,
-            }}
-          >
-            <OrgTree nodes={orgTree} />
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-function OrgTree({ nodes = [], depth = 0 }) {
-  return (
-    <div style={{ marginLeft: depth ? 18 : 0 }}>
-      {nodes.map((node) => (
-        <div key={node._id} style={{ marginBottom: 10 }}>
-          <div
-            style={{
-              padding: "8px 10px",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              background: "var(--input-bg)",
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 13 }}>{node.name}</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              {node.designation || "—"}
-              {node.module ? ` • ${node.module}` : ""}
-            </div>
-          </div>
-          {node.children?.length > 0 && <OrgTree nodes={node.children} depth={depth + 1} />}
-        </div>
-      ))}
-    </div>
-  );
-}
 
