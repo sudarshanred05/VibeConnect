@@ -47,15 +47,11 @@ npm install
 npm run dev
 ```
 
-Open the frontend at `http://localhost:3000` or the Vite-provided local URL.
+Open the frontend at `http://localhost:3001` or the Vite-provided local URL.
 
-## Docker
 
-```bash
-docker compose up --build
-```
 
-Frontend: `http://localhost:3000`
+Frontend: `http://localhost:3001`
 Backend: `http://localhost:5000`
 
 ## Deployment Notes
