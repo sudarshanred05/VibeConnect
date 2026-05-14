@@ -63,16 +63,4 @@ Backend: `http://localhost:5000`
 - Frontend can deploy to Vercel or Netlify with `VITE_API_URL` pointing to the backend `/api`.
 - Backend can deploy to Render, Railway, AWS, or similar Node hosting.
 - Use MongoDB Atlas for production `MONGO_URI`.
-- Set `GROQ_API_KEY` or `OPENAI_API_KEY` in the backend host secret manager.
-- Keep `JWT_SECRET` and `JWT_REFRESH_SECRET` long, random, and environment-specific.
-- Upload limits are controlled by `MAX_FILE_SIZE`.
-
-## RAG Behavior
-
-The assistant answers only from indexed VibeConnect corpus chunks. If retrieval confidence is too low, it responds:
-
-```text
-This information is not available in the VibeConnect knowledge base.
-```
-
-Admin users can improve coverage by uploading approved VibeConnect documents or adding manual knowledge snippets from the Admin Dashboard.
+-  improve coverage by uploading approved VibeConnect documents or adding manual knowledge snippets from the Admin Dashboard.
