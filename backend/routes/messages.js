@@ -9,16 +9,6 @@ router.use(verifyToken);
 
 router.get("/", c.getMessages);
 router.post(
-  "/",
-  [
-    body("chatId").notEmpty(),
-    body("senderId").notEmpty(),
-    body("type").optional().isIn(["text", "media", "poll", "system"]),
-    body("content").optional().isLength({ max: 10000 }),
-  ],
-  c.sendMessage,
-);
-router.post(
   "/poll",
   [
     body("chatId").notEmpty(),

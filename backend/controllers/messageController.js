@@ -122,20 +122,13 @@ exports.getMessages = async (req, res) => {
   }
 };
 
-exports.sendMessage = async (req, res) => {
+exports.createPoll = async (req, res) => {
   try {
-    const {
-      chatId,
-      senderId,
-      type = "text",
-      content = "",
-      metadata = {},
-      replyTo = null,
-    } = req.body;
+    const { chatId, senderId, question, options = [], expiresAt = null, replyTo = null } = req.body;
     const authUserId = req.user?.id;
 
-    if (!chatId || !senderId) {
-      return res.status(400).json({ success: false, error: "chatId and senderId are required" });
+    if (!chatId || !senderId || !question || options.length < 2) {
+      return res.status(400).json({ success: false, error: "chatId, senderId, question and at least 2 options are required" });
     }
 
     if (!authUserId || String(authUserId) !== String(senderId)) {
@@ -152,22 +145,18 @@ exports.sendMessage = async (req, res) => {
       return res.status(403).json({ success: false, error: "You are no longer an active member of this chat" });
     }
 
-    const safeContent = type === "text" || type === "system"
-      ? sanitizeText(content)
-      : "";
-
-    const encryptedContent = safeContent ? encrypt(safeContent) : null;
-
-    const mentions = type === "text" ? extractMentions(safeContent) : [];
+    const safeQuestion = sanitizeText(question);
+    const safeOptions = options.map((opt) => sanitizeText(opt));
 
     const message = await Message.create({
       chatId,
       senderId,
-      type,
-      content: encryptedContent,
+      type: "poll",
+      content: null,
       metadata: {
-        ...(metadata || {}),
-        ...(mentions.length ? { mentions } : {}),
+        question: safeQuestion,
+        options: safeOptions,
+        expiresAt,
       },
       replyTo,
       isEdited: false,
@@ -192,35 +181,6 @@ exports.sendMessage = async (req, res) => {
     }
 
     return res.status(201).json({ success: true, data: hydratedMessage });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-exports.createPoll = async (req, res) => {
-  try {
-    const { chatId, senderId, question, options = [], expiresAt = null, replyTo = null } = req.body;
-    if (!chatId || !senderId || !question || options.length < 2) {
-      return res.status(400).json({ success: false, error: "chatId, senderId, question and at least 2 options are required" });
-    }
-
-    const safeQuestion = sanitizeText(question);
-    const safeOptions = options.map((opt) => sanitizeText(opt));
-
-    req.body = {
-      chatId,
-      senderId,
-      type: "poll",
-      content: "",
-      metadata: {
-        question: safeQuestion,
-        options: safeOptions,
-        expiresAt,
-      },
-      replyTo,
-    };
-
-    return exports.sendMessage(req, res);
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
